@@ -1,0 +1,72 @@
+import serial, math, time
+from gpiozero import Servo
+import matplotlib.pyplot as plt
+import numpy as np
+
+# === CONFIG ===
+PORT = "/dev/ttyS0"
+BAUD = 115200
+HEIGHT_CM = 50   # Απόσταση LiDAR από τη μακέτα
+
+PAN_PIN = 18
+TILT_PIN = 13
+
+# Servo range
+PAN_MIN, PAN_MAX, PAN_STEP = -30, 30, 2
+TILT_MIN, TILT_MAX, TILT_STEP = -10, 10, 4
+
+# === Init ===
+ser = serial.Serial(PORT, BAUD, timeout=1)
+pan = Servo(PAN_PIN, min_pulse_width=0.0008, max_pulse_width=0.0022)
+tilt = Servo(TILT_PIN, min_pulse_width=0.0008, max_pulse_width=0.0022)
+
+# === Data storage ===
+points = []
+
+def read_lidar():
+    """Reads one TFmini-S packet"""
+    while True:
+        if ser.read() == b'Y' and ser.read() == b'Y':
+            data = ser.read(7)
+            return data[0] + data[1] * 256
+
+# === Live Plot Setup ===
+plt.ion()
+fig, ax = plt.subplots()
+ax.set_title("Live LiDAR Scan (Top View)")
+ax.set_xlabel("X (cm)")
+ax.set_ylabel("Y (cm)")
+scatter, = ax.plot([], [], 'bo', markersize=3)
+ax.set_xlim(-100, 100)
+ax.set_ylim(-50, 50)
+
+print("\n📡 Starting scan...\n")
+
+for tilt_angle in range(TILT_MIN, TILT_MAX + 1, TILT_STEP):
+    tilt.value = tilt_angle / 90
+    time.sleep(0.2)
+
+    sweep = range(PAN_MIN, PAN_MAX + 1, PAN_STEP)
+    sweep = reversed(list(sweep)) if tilt_angle % 2 == 0 else sweep
+
+    for pan_angle in sweep:
+        pan.value = pan_angle / 90
+        time.sleep(0.1)
+
+        dist = read_lidar()
+
+        # Convert to coordinates
+        a = math.radians(pan_angle)
+        x = (HEIGHT_CM - dist) * math.sin(a)
+        y = (HEIGHT_CM - dist) * math.cos(a)
+
+        points.append((x, y))
+
+        xs, ys = zip(*points)
+        scatter.set_data(xs, ys)
+        plt.draw()
+        plt.pause(0.001)
+
+print("\n✔ Scan complete!")
+plt.ioff()
+plt.show()
