@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LiDAR Live Scan</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<button onclick="socket.emit('start_scan')">▶ START SCAN</button>
+<div id="view"></div>
+
+<script>
+const socket = io();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 1, 2000);
+camera.position.z = 300;
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+let geometry = new THREE.BufferGeometry();
+let pointsArray = [];
+
+socket.on("point", data => {
+    pointsArray.push(data.x, data.y, data.z);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(pointsArray, 3));
+    let points = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xffaa00, size: 3 }));
+    scene.add(points);
+});
+
+function animate() {
+    requestAnimationFrame(animate);
+    scene.rotation.y += 0.003;
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
