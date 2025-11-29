@@ -2,73 +2,62 @@ import serial
 from gpiozero import Servo
 from time import sleep
 import math
+import numpy as np
 import matplotlib.pyplot as plt
 
-# ----- CONFIG -----
+# ---- CONFIG ----
 SERIAL_PORT = "/dev/ttyS0"
 BAUD_RATE = 115200
 SERVO_PIN = 18
 STEP_DEGREES = 5
-MOVEMENT_STEP = 5  # cm forward per full scan cycle (simulate drone movement)
+MOVEMENT_STEP = 5  # cm movement forward per scan
 
-# ----- INIT -----
+GRID_RESOLUTION = 5  # cm per pixel
+GRID_SIZE = 200  # pixels (map 10m x 10m at 5cm resolution)
+
+# ---- INIT ----
 ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
 servo = Servo(SERVO_PIN, min_pulse_width=0.0008, max_pulse_width=0.0022)
 
-scan_points = []
-forward_offset = 0
+grid = np.zeros((GRID_SIZE, GRID_SIZE))
+forward_offset = GRID_SIZE // 2  # scanner starts in middle
 
 plt.ion()
 fig, ax = plt.subplots()
-ax.set_title("Live 2D LiDAR Mapping")
-ax.set_xlabel("X (cm)")
-ax.set_ylabel("Y (cm)")
-ax.set_aspect("equal")
-
-print("\n📍 Starting LIVE mapping...  (CTRL+C to stop)\n")
+ax.set_title("LIVE 2D MAP (Occupancy Grid)")
+print("\n📡 Mapping started...\n")
 
 while True:
-    scan_line = []
-    direction = 1
     angles = list(range(-90, 91, STEP_DEGREES))
-
-    # If going back and forth, reverse scanning direction
-    if len(scan_points) % 2 == 1:
+    if forward_offset % 2 == 1:
         angles.reverse()
 
     for angle in angles:
         servo.value = angle / 90
-        sleep(0.1)
+        sleep(0.06)
 
         data = ser.read(9)
-        if len(data) == 9 and data[0] == 0x59 and data[1] == 0x59:
+        if len(data) == 9 and data[0] == 0x59:
             dist = data[2] + data[3] * 256
 
-            # Convert polar --> cartesian
+            # Convert to XY real world coords
             angle_rad = math.radians(angle)
             x = dist * math.cos(angle_rad)
-            y = dist * math.sin(angle_rad) + forward_offset
+            y = dist * math.sin(angle_rad) + forward_offset * GRID_RESOLUTION
 
-            scan_line.append((x, y))
-            scan_points.append((x, y))
+            # Convert to grid coords
+            gx = int(x / GRID_RESOLUTION + GRID_SIZE // 2)
+            gy = int(y / GRID_RESOLUTION)
 
-            print(f"Angle {angle:>4}° | Dist {dist:>4} cm | Point ({int(x)}, {int(y)})")
+            # Check bounds
+            if 0 <= gx < GRID_SIZE and 0 <= gy < GRID_SIZE:
+                grid[GRID_SIZE - gy - 1, gx] = 1  # mark cell as occupied
 
-    # Move the virtual drone forward for next scan
-    forward_offset += MOVEMENT_STEP
+    # Move forward as if the drone moves
+    forward_offset += MOVEMENT_STEP / GRID_RESOLUTION
 
-    # ----- LIVE PLOT -----
+    # ----- DRAW MAP -----
     ax.clear()
-    ax.set_title("Live 2D LiDAR Mapping")
-    ax.set_xlabel("X (cm)")
-    ax.set_ylabel("Y (cm)")
-    ax.set_aspect("equal")
-
-    xs = [p[0] for p in scan_points]
-    ys = [p[1] for p in scan_points]
-
-    ax.scatter(xs, ys, s=10, c='blue')
-    ax.scatter([0], [forward_offset], s=60, c='red', label="Scanner Position")
-    ax.legend()
-
+    ax.set_title("LIVE 2D MAP (Occupancy Grid)")
+    ax.imshow(grid, cmap="gray")
     plt.pause(0.01)
