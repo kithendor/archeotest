@@ -5,59 +5,51 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ---- CONFIG ----
 SERIAL_PORT = "/dev/ttyS0"
 BAUD_RATE = 115200
 SERVO_PIN = 18
 STEP_DEGREES = 5
-MOVEMENT_STEP = 5  # cm movement forward per scan
+FORWARD_STEP_CM = 10
 
-GRID_RESOLUTION = 5  # cm per pixel
-GRID_SIZE = 200  # pixels (map 10m x 10m at 5cm resolution)
+GRID_RES = 2  # cm per pixel
+GRID_W = GRID_H = 400  # grid resolution
 
-# ---- INIT ----
 ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
 servo = Servo(SERVO_PIN, min_pulse_width=0.0008, max_pulse_width=0.0022)
 
-grid = np.zeros((GRID_SIZE, GRID_SIZE))
-forward_offset = GRID_SIZE // 2  # scanner starts in middle
+grid = np.zeros((GRID_H, GRID_W))
+forward_offset_cm = 0
 
 plt.ion()
 fig, ax = plt.subplots()
-ax.set_title("LIVE 2D MAP (Occupancy Grid)")
-print("\n📡 Mapping started...\n")
+ax.set_title("LIVE 2D MAP")
 
 while True:
-    angles = list(range(-90, 91, STEP_DEGREES))
-    if forward_offset % 2 == 1:
-        angles.reverse()
+    angles = range(-90, 91, STEP_DEGREES)
 
     for angle in angles:
         servo.value = angle / 90
-        sleep(0.06)
+        sleep(0.04)
 
         data = ser.read(9)
         if len(data) == 9 and data[0] == 0x59:
             dist = data[2] + data[3] * 256
 
-            # Convert to XY real world coords
-            angle_rad = math.radians(angle)
-            x = dist * math.cos(angle_rad)
-            y = dist * math.sin(angle_rad) + forward_offset * GRID_RESOLUTION
+            # Convert to cartesian coordinates
+            a = math.radians(angle)
+            x_cm = dist * math.sin(a)
+            y_cm = dist * math.cos(a) + forward_offset_cm
 
-            # Convert to grid coords
-            gx = int(x / GRID_RESOLUTION + GRID_SIZE // 2)
-            gy = int(y / GRID_RESOLUTION)
+            gx = int(x_cm / GRID_RES + GRID_W / 2)
+            gy = int(y_cm / GRID_RES)
 
-            # Check bounds
-            if 0 <= gx < GRID_SIZE and 0 <= gy < GRID_SIZE:
-                grid[GRID_SIZE - gy - 1, gx] = 1  # mark cell as occupied
+            if 0 <= gx < GRID_W and 0 <= gy < GRID_H:
+                grid[GRID_H - gy - 1, gx] = 1
 
-    # Move forward as if the drone moves
-    forward_offset += MOVEMENT_STEP / GRID_RESOLUTION
+    # move forward for next scan
+    forward_offset_cm += FORWARD_STEP_CM
 
-    # ----- DRAW MAP -----
     ax.clear()
-    ax.set_title("LIVE 2D MAP (Occupancy Grid)")
-    ax.imshow(grid, cmap="gray")
+    ax.imshow(grid, cmap='gray')
+    ax.set_title("LIVE 2D MAP")
     plt.pause(0.01)
