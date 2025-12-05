@@ -1,0 +1,117 @@
+import serial, math
+from time import sleep
+import pigpio
+import plotly.graph_objects as go
+import numpy as np
+
+# --- USER SETTINGS ---
+PORT = "/dev/ttyS0"
+BAUD = 115200
+HEIGHT_CM = 70  # ύψος του LiDAR
+
+PAN_PIN = 13
+TILT_PIN = 18
+
+# Sweep ranges (δοκίμασε 1° ανάλυση)
+PAN_MIN, PAN_MAX, PAN_STEP = -40, 40, 1
+TILT_MIN, TILT_MAX, TILT_STEP = -20, 20, 1
+
+# --- INIT ---
+ser = serial.Serial(PORT, BAUD, timeout=1)
+pi = pigpio.pi()
+if not pi.connected:
+    print("❌ Pigpio not connected!")
+    exit()
+
+def pulse(angle):
+    return int(500 + (angle + 90) * 2000 / 180)
+
+def move(pin, angle, smooth=True):
+    target = pulse(angle)
+    current = pi.get_servo_pulsewidth(pin)
+
+    if current < 500 or current > 2500:
+        current = target
+
+    if smooth:
+        step = 10
+        while abs(current - target) > step:
+            current += step if target > current else -step
+            pi.set_servo_pulsewidth(pin, current)
+            sleep(0.005)
+
+    pi.set_servo_pulsewidth(pin, target)
+    sleep(0.12)
+
+# === FIXED READER WITH FLUSH ===
+def read_lidar():
+    # 🚀 SUPER IMPORTANT: Flush old bytes
+    ser.reset_input_buffer()
+
+    # Find header "YY"
+    while True:
+        if ser.read() == b'Y' and ser.read() == b'Y':
+            data = ser.read(7)
+            if len(data) == 7:
+                dist = data[0] + data[1] * 256
+                strength = data[2] + data[3] * 256
+                # return both for debugging
+                return dist, strength
+
+# --- DATA LISTS ---
+xs, ys, zs = [], [], []
+
+print("\n📡 STARTING 3D SCAN (FLUSH VERSION)...\n")
+
+# --- MAIN SCAN LOOP ---
+for tilt in range(TILT_MIN, TILT_MAX + 1, TILT_STEP):
+    move(TILT_PIN, tilt)
+
+    pan_range = range(PAN_MIN, PAN_MAX + 1, PAN_STEP)
+    if tilt % 2 == 0:
+        pan_range = reversed(list(pan_range))
+
+    for pan in pan_range:
+        move(PAN_PIN, pan)
+
+        result = read_lidar()
+        if result is None:
+            print("⚠ No lidar data")
+            continue
+
+        dist, strength = result
+
+        a = math.radians(pan)
+        b = math.radians(tilt)
+
+        x = dist * math.cos(b) * math.sin(a)
+        y = dist * math.sin(b)
+        z = HEIGHT_CM - dist * math.cos(a) * math.cos(b)
+
+        xs.append(x)
+        ys.append(y)
+        zs.append(z)
+
+        print(f"Tilt {tilt:>3}° | Pan {pan:>3}° → Dist {dist} cm | S={strength}")
+
+# STOP SERVO PWM
+pi.set_servo_pulsewidth(PAN_PIN, 0)
+pi.set_servo_pulsewidth(TILT_PIN, 0)
+
+print("\n✔ SCAN COMPLETE")
+print("📦 Showing 3D plot...\n")
+
+# --- BASIC 3D PLOT ---
+fig = go.Figure(data=[go.Scatter3d(
+    x=xs, y=ys, z=zs,
+    mode='markers',
+    marker=dict(size=3, color=zs, colorscale='Viridis')
+)])
+
+fig.update_layout(
+    title="3D LiDAR Scan (with Flush Fix)",
+    width=900,
+    height=700
+)
+
+fig.show()
