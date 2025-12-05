@@ -1,19 +1,25 @@
 import serial
 import time
 
-PORT = "/dev/ttyS0"
-BAUD = 115200
+ser = serial.Serial("/dev/ttyS0", 115200, timeout=0.2)
 
-ser = serial.Serial(PORT, BAUD, timeout=1)
+def read_lidar():
+    if ser.read() != b'Y':
+        return None
+    if ser.read() != b'Y':
+        return None
+    data = ser.read(7)
+    if len(data) != 7:
+        return None
+    dist = data[0] + data[1]*256
+    strength = data[2] + data[3]*256
+    return dist, strength
 
-print("📡 TFmini-S RAW Distance Test (cm)")
-print("Press CTRL+C to stop.\n")
+print("TFmini-S test. Move object to 10–150 cm. CTRL+C to stop.\n")
 
 while True:
-    if ser.read() == b'Y' and ser.read() == b'Y':
-        data = ser.read(7)
-        distance = data[0] + data[1] * 256    # cm
-        strength = data[2] + data[3] * 256    # optional info
-
-        print(f"Distance: {distance:4} cm   | Strength: {strength}")
-        time.sleep(0.02)
+    result = read_lidar()
+    if result:
+        dist, strength = result
+        print(f"Distance: {dist:4} cm | Strength: {strength}")
+    time.sleep(0.05)
