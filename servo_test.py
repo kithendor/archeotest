@@ -15,11 +15,21 @@ def set_angle(pin, angle):
     pi.set_servo_pulsewidth(pin, pulse)
     print(f"{pin} -> {angle}° ({pulse}us)")
 
+def center(pin):
+    # 0° αντιστοιχεί περίπου σε 1500 μs
+    pi.set_servo_pulsewidth(pin, 1500)
+    print(f"Servo on pin {pin} → CENTER (1500 µs)")
+    sleep(2)
+
 print("\n=== SERVO TEST WITH PIGPIO ===")
 
 for angle in [-90, -45, 0, 45, 90]:
     set_angle(PAN_PIN, angle)
     sleep(1)
+
+
+center(SERVO_PIN)
+center(SERVO_PIN2)
 
 pi.set_servo_pulsewidth(PAN_PIN, 0)
 pi.set_servo_pulsewidth(TILT_PIN, 0)
