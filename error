@@ -1,12 +1,12 @@
+pi = pigpio.pi()
+if not pi.connected:
+    print("❌ pigpio not connected")
+    exit()
 
-Traceback (most recent call last):
-  File "/home/admin/Desktop/to kalo/to_kalo_scan.py", line 75, in <module>
-    move(PAN_PIN, pan)
-  File "/home/admin/Desktop/to kalo/to_kalo_scan.py", line 31, in move
-    current = pi.get_servo_pulsewidth(pin)
-  File "/usr/local/lib/python3.13/dist-packages/pigpio-1.78-py3.13.egg/pigpio.py", line 1699, in get_servo_pulsewidth
-    return _u2i(_pigpio_command(self.sl, _PI_CMD_GPW, user_gpio, 0))
-  File "/usr/local/lib/python3.13/dist-packages/pigpio-1.78-py3.13.egg/pigpio.py", line 1011, in _u2i
-    raise error(error_text(v))
-pigpio.error: 'GPIO is not in use for servo pulses'
->>> 
+# --- VERY IMPORTANT: setup servo pins ---
+pi.set_mode(PAN_PIN, pigpio.OUTPUT)
+pi.set_mode(TILT_PIN, pigpio.OUTPUT)
+
+# initialize pulsewidth so pigpio "claims" the pins for servo use
+pi.set_servo_pulsewidth(PAN_PIN, 0)
+pi.set_servo_pulsewidth(TILT_PIN, 0)
