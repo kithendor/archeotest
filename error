@@ -1,12 +1,65 @@
-pi = pigpio.pi()
-if not pi.connected:
-    print("❌ pigpio not connected")
-    exit()
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LiDAR Web App</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 12px; margin: 8px; font-size: 16px; }
+        iframe { width: 95%; height: 600px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
 
-# --- VERY IMPORTANT: setup servo pins ---
-pi.set_mode(PAN_PIN, pigpio.OUTPUT)
-pi.set_mode(TILT_PIN, pigpio.OUTPUT)
+<h1>LiDAR Scan Web Interface</h1>
 
-# initialize pulsewidth so pigpio "claims" the pins for servo use
-pi.set_servo_pulsewidth(PAN_PIN, 0)
-pi.set_servo_pulsewidth(TILT_PIN, 0)
+<button onclick="startScan()">Start Scan</button>
+<button onclick="show3D()">View 3D Map</button>
+<button onclick="show2D()">View 2D Map</button>
+<button onclick="downloadSTL()">Download STL</button>
+
+<h3>Status:</h3>
+<div id="status">Idle</div>
+
+<div id="viewer"></div>
+
+<script>
+function startScan() {
+    fetch("/scan")
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById("status").innerHTML = "Scan started...";
+        updateStatus();
+    });
+}
+
+function updateStatus() {
+    fetch("/status")
+    .then(r => r.json())
+    .then(data => {
+        if (data.scanning) {
+            document.getElementById("status").innerHTML =
+                "Scanning... " + data.progress + "%";
+            setTimeout(updateStatus, 500);
+        } else {
+            document.getElementById("status").innerHTML = "Scan finished!";
+        }
+    });
+}
+
+function show3D() {
+    document.getElementById("viewer").innerHTML =
+        '<iframe src="/view3d"></iframe>';
+}
+
+function show2D() {
+    document.getElementById("viewer").innerHTML =
+        '<iframe src="/view2d"></iframe>';
+}
+
+function downloadSTL() {
+    window.location.href = "/download_stl";
+}
+</script>
+
+</body>
+</html>
