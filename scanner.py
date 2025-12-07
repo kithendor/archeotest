@@ -80,6 +80,10 @@ def run_scan():
     is_scanning = True
     scan_progress = 0
 
+    pi.set_servo_pulsewidth(PAN_PIN, 1500)
+    pi.set_servo_pulsewidth(TILT_PIN, 1500)
+    time.sleep(0.3)
+
     xs, ys, zs = [], [], []
 
     total_moves = ((abs(TILT_MAX - TILT_MIN)//TILT_STEP)+1) * ((abs(PAN_MAX - PAN_MIN)//PAN_STEP)+1)
