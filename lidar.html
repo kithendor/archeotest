@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LiDAR Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: #1f1f1f;
+            padding: 15px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #333;
+        }
+        .container {
+            padding: 20px;
+        }
+        button {
+            background: #3a86ff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            margin: 8px;
+            cursor: pointer;
+            color: white;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #5ca0ff;
+        }
+        .panel {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #333;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            background: #000;
+            border-radius: 10px;
+        }
+        #status {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 18px;
+            background: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #3a86ff;
+            transition: width 0.2s;
+        }
+    </style>
+</head>
+<body>
+
+<header>LiDAR Scan Control Panel</header>
+
+<div class="container">
+
+
+
+    
+
+</div>
+
+<script>
+function startScan() {
+    document.getElementById("status").innerHTML = "Starting scan...";
+    document.getElementById("progress").style.width = "0%";
+
+    fetch("/scan")
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === "busy") {
+            document.getElementById("status").innerHTML = "Scan already running!";
+            return;
+        }
+        updateStatus();
+    });
+}
+
+function updateStatus() {
+    fetch("/status")
+    .then(r => r.json())
+    .then(data => {
+        if (data.scanning) {
+            document.getElementById("status").innerHTML =
+                "Scanning... " + data.progress + "%";
+            document.getElementById("progress").style.width =
+                data.progress + "%";
+            setTimeout(updateStatus, 300);
+        } else {
+            document.getElementById("status").innerHTML = "Scan complete!";
+            document.getElementById("progress").style.width = "100%";
+        }
+    });
+}
+
+function show3D() {
+    document.getElementById("viewer").src = "/view3d";
+}
+
+function show2D() {
+    document.getElementById("viewer").src = "/view2d";
+}
+
+function downloadSTL() {
+    window.location.href = "/download_stl";
+}
+</script>
+
+</body>
+</html>
