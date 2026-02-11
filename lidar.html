@@ -1,86 +1,222 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LiDAR Control Panel</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #121212;
-            color: #e0e0e0;
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            background: #1f1f1f;
-            padding: 15px;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            border-bottom: 2px solid #333;
-        }
-        .container {
-            padding: 20px;
-        }
-        button {
-            background: #3a86ff;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
-            font-size: 16px;
-            margin: 8px;
-            cursor: pointer;
-            color: white;
-            transition: 0.2s;
-        }
-        button:hover {
-            background: #5ca0ff;
-        }
-        .panel {
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 20px;
-            border: 1px solid #333;
-        }
-        iframe {
-            width: 100%;
-            height: 600px;
-            border: none;
-            background: #000;
-            border-radius: 10px;
-        }
-        #status {
-            font-size: 18px;
-            margin-top: 10px;
-        }
-        .progress-bar-bg {
-            width: 100%;
-            height: 18px;
-            background: #333;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: #3a86ff;
-            transition: width 0.2s;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <title>ArchaeoScan – Control Panel</title>
+  <style>
+    :root{
+      --bg:#121212;
+      --panel:#1a1a1a;
+      --panel2:#1e1e1e;
+      --border:#2f2f2f;
+      --text:#eaeaea;
+      --muted:#bdbdbd;
+      --accent:#3a86ff;
+      --danger:#d00000;
+    }
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      height:100vh;
+      display:flex;
+    }
+
+    /* LEFT */
+    .sidebar{
+      width:25%;
+      min-width:320px;
+      max-width:420px;
+      background:var(--panel);
+      border-right:2px solid var(--border);
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      overflow-y:auto;
+    }
+
+    .brand{
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+    }
+    .brand h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.5px;
+    }
+    .brand p{
+      margin:6px 0 0 0;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .section{
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px;
+    }
+    .section h3{
+      margin:0 0 10px 0;
+      font-size:13px;
+      letter-spacing:.6px;
+      color:var(--accent);
+      text-transform:uppercase;
+    }
+
+    .btn{
+      width:100%;
+      padding:10px 12px;
+      border:none;
+      border-radius:10px;
+      cursor:pointer;
+      margin:5px 0;
+      font-size:14px;
+      color:white;
+      background:var(--accent);
+      transition:.15s;
+      text-align:left;
+    }
+    .btn:hover{ filter:brightness(1.08); }
+
+    .btn.secondary{
+      background:#2b2b2b;
+      border:1px solid var(--border);
+    }
+    .btn.secondary:hover{ background:#343434; }
+
+    .btn.danger{ background:var(--danger); }
+
+    #status{
+      margin-top:6px;
+      font-size:14px;
+      color:var(--muted);
+    }
+
+    .progress-bar-bg{
+      width:100%;
+      height:14px;
+      background:#333;
+      border-radius:8px;
+      overflow:hidden;
+      margin-top:8px;
+    }
+    .progress-bar{
+      height:100%;
+      width:0%;
+      background:var(--accent);
+      transition: width 0.2s;
+    }
+
+    .sticky-bottom{ margin-top:auto; }
+
+    /* RIGHT */
+    .main{
+      width:75%;
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .topbar{
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .topbar .hint{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .viewer{
+      flex:1;
+      background:#000;
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    iframe{
+      width:100%;
+      height:100%;
+      border:none;
+      background:#000;
+    }
+
+    /* mobile fallback */
+    @media (max-width: 980px){
+      body{ flex-direction:column; height:auto; }
+      .sidebar{ width:100%; max-width:none; min-width:0; }
+      .main{ width:100%; height:70vh; }
+    }
+  </style>
 </head>
+
 <body>
 
-<header>LiDAR Scan Control Panel</header>
+  <aside class="sidebar">
 
-<div class="container">
+    <div class="brand">
+      <h1>ArchaeoScan</h1>
+      <p>LiDAR scanning • Findings • AI assist (offline)<br/>Field-ready web interface</p>
+    </div>
 
+    <div class="section">
+      <h3>📡 Scanning</h3>
+      <button class="btn" onclick="startScan()">Start Scan</button>
+      <div id="status">Idle</div>
+      <div class="progress-bar-bg">
+        <div id="progress" class="progress-bar"></div>
+      </div>
+    </div>
 
+    <div class="section">
+      <h3>🗺 </h3>
 
-    
+    </div>
 
-</div>
+    <div class="section">
+      <h3>📦 </h3>
+
+    </div>
+
+    <div class="section">
+      <h3>📷 </h3>
+
+    </div>
+
+    <div class="section">
+      <h3>🎥 </h3>
+
+    </div>
+
+    <div class="sticky-bottom">
+      <button class="btn danger" onclick="shutdownPi()">Shutdown Pi</button>
+    </div>
+
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="hint">Viewer</div>
+      <div class="hint">Flow: Scan → View 2D → Mark findings → Export</div>
+    </div>
+
+    <div class="viewer">
+      <iframe id="viewer"></iframe>
+    </div>
+  </main>
+
 
 <script>
 function startScan() {
@@ -96,6 +232,19 @@ function startScan() {
         }
         updateStatus();
     });
+}
+
+function showFindings() {
+    document.getElementById("viewer").src = "/findings";
+}
+
+function downloadProjectZip() {
+    window.location.href = "/download_project_zip";
+}
+
+function runAI() {
+  document.getElementById("status").innerHTML = "Running AI on last photo...";
+  document.getElementById("viewer").src = "/ai_view_last_photo";
 }
 
 function updateStatus() {
@@ -115,6 +264,14 @@ function updateStatus() {
     });
 }
 
+function downloadFindingsJSON() {
+    window.location.href = "/download_findings_json";
+}
+
+function downloadFindingsCSV() {
+    window.location.href = "/download_findings_csv";
+}
+
 function show3D() {
     document.getElementById("viewer").src = "/view3d";
 }
@@ -125,6 +282,69 @@ function show2D() {
 
 function downloadSTL() {
     window.location.href = "/download_stl";
+}
+
+// -------- Camera JS --------
+
+function capturePhoto() {
+    document.getElementById("status").innerHTML = "Capturing photo...";
+    fetch("/capture_photo")
+      .then(r => r.json())
+      .then(data => {
+          if (data.status === "ok") {
+              document.getElementById("status").innerHTML = "Photo captured!";
+              document.getElementById("viewer").src = "/show_photo";
+          } else {
+              document.getElementById("status").innerHTML = "Error: " + data.error;
+          }
+      })
+      .catch(err => {
+          document.getElementById("status").innerHTML = "Error: " + err;
+      });
+}
+
+function showPhoto() {
+    document.getElementById("viewer").src = "/show_photo";
+}
+
+function recordVideo() {
+    document.getElementById("status").innerHTML = "Recording 5s video...";
+    fetch("/record_video")
+      .then(r => r.json())
+      .then(data => {
+          if (data.status === "ok") {
+              document.getElementById("status").innerHTML = "Video recorded!";
+              document.getElementById("viewer").src = "/show_video";
+          } else {
+              document.getElementById("status").innerHTML = "Error: " + data.error;
+          }
+      })
+      .catch(err => {
+          document.getElementById("status").innerHTML = "Error: " + err;
+      });
+}
+
+function showVideo() {
+    document.getElementById("viewer").src = "/show_video";
+}
+
+
+function shutdownPi() {
+    if (!confirm("Σίγουρα θέλεις να κλείσει το Raspberry;")) {
+        return;
+    }
+
+    document.getElementById("status").innerHTML = "Shutting down...";
+    document.getElementById("progress").style.width = "0%";
+
+    fetch("/shutdown", {method: "POST"})
+      .then(r => r.json())
+      .then(data => {
+          document.getElementById("status").innerHTML = data.message || "Shutting down...";
+      })
+      .catch(err => {
+          document.getElementById("status").innerHTML = "Error: " + err;
+      });
 }
 </script>
 
