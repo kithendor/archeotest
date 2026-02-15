@@ -1,7 +1,20 @@
-import serial, time, math, numpy as np, pandas as pd
+import serial
+import time
+import math
+import numpy as np
+import pandas as pd
 import pigpio
 import plotly.graph_objects as go
 import plotly.express as px
+import plotly.io as pio
+import json
+import os
+import threading
+
+
+live_lock = threading.Lock()
+live_points = []   # list of (x,y,z)
+live_scan_id = 0   # αλλάζει σε κάθε scan
 
 # ---------------------------------------------------------
 # HARDWARE SETTINGS
@@ -14,8 +27,8 @@ TILT_PIN = 18    # <-- Tilt servo here
 
 HEIGHT_CM = 70   # Height of LiDAR from table
 
-PAN_MIN, PAN_MAX, PAN_STEP = -35, 35, 1
-TILT_MIN, TILT_MAX, TILT_STEP = -15, 15, 1
+PAN_MIN, PAN_MAX, PAN_STEP = -25, 25, 5
+TILT_MIN, TILT_MAX, TILT_STEP = -25, 25, 5
 
 GRID_SIZE = 2.0         # Size of grid cells in cm
 BUILDING_THRESHOLD = 5  # cm above ground to consider “walls”
@@ -75,24 +88,28 @@ def read_lidar():
 # ---------------------------------------------------------
 # MAIN SCAN ROUTINE
 # ---------------------------------------------------------
-def run_scan():
-    global is_scanning, scan_progress
+def run_scan(step=2):
+    global is_scanning, scan_progress, live_points, live_scan_id
     is_scanning = True
     scan_progress = 0
 
+    with live_lock:
+        live_points = []
+        live_scan_id += 1
+    
     pi.set_servo_pulsewidth(PAN_PIN, 1500)
     pi.set_servo_pulsewidth(TILT_PIN, 1500)
     time.sleep(0.3)
 
     xs, ys, zs = [], [], []
 
-    total_moves = ((abs(TILT_MAX - TILT_MIN)//TILT_STEP)+1) * ((abs(PAN_MAX - PAN_MIN)//PAN_STEP)+1)
+    total_moves = ((abs(TILT_MAX - TILT_MIN)//step)+1) * ((abs(PAN_MAX - PAN_MIN)//step)+1)
     done = 0
 
-    for tilt in range(TILT_MIN, TILT_MAX + 1, TILT_STEP):
+    for tilt in range(TILT_MIN, TILT_MAX + 1, step):
         move(TILT_PIN, tilt)
 
-        sweep = range(PAN_MIN, PAN_MAX + 1, PAN_STEP)
+        sweep = range(PAN_MIN, PAN_MAX + 1, step)
         if tilt % 2 == 0:
             sweep = reversed(list(sweep))
 
@@ -110,6 +127,9 @@ def run_scan():
             xs.append(x)
             ys.append(y)
             zs.append(z)
+            
+            with live_lock:
+                live_points.append((x, y, z))
 
             done += 1
             scan_progress = int((done / total_moves) * 100)
@@ -134,21 +154,101 @@ def run_scan():
 # ---------------------------------------------------------
 # 3D PLOT GENERATOR
 # ---------------------------------------------------------
+
+def load_markers_file():
+    try:
+        base_dir = os.path.dirname(__file__)
+        path = os.path.join(base_dir, "markers.json")
+        if not os.path.exists(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def snap_markers_to_cloud(markers, xs, ys, zs):
+    # βρίσκουμε z από το κοντινότερο σημείο στο point cloud (με βάση x,y)
+    xs = np.array(xs)
+    ys = np.array(ys)
+    zs = np.array(zs)
+
+    mx, my, mz, mid, mnote = [], [], [], [], []
+    for m in markers:
+        x = float(m.get("x", 0))
+        y = float(m.get("y", 0))
+        # απόσταση μόνο σε x-y (για top-down mapping)
+        d2 = (xs - x)**2 + (ys - y)**2
+        k = int(np.argmin(d2))
+        mx.append(x)
+        my.append(y)
+        mz.append(float(zs[k]) + 1.0)  # +1cm για να "κάθεται" από πάνω
+        mid.append(m.get("id", "F-??"))
+        mnote.append(m.get("note", ""))
+    return mx, my, mz, mid, mnote
+
+
+
+
 last_3d_html = "<h2>No scan yet</h2>"
 
 def prepare_3d_plot(xs, ys, zs):
     global last_3d_html
-    fig = go.Figure(data=[go.Scatter3d(
+
+    fig = go.Figure()
+
+    # main point cloud
+    fig.add_trace(go.Scatter3d(
         x=xs, y=ys, z=zs,
         mode='markers',
-        marker=dict(size=3, color=zs, colorscale="Viridis")
-    )])
-    fig.update_layout(width=900, height=700, title="3D LiDAR Scan")
-    last_3d_html = fig.to_html(full_html=False)
+        name='Scan',
+        marker=dict(size=3, color=zs, colorscale="Viridis"),
+        hovertemplate="x=%{x:.1f} cm<br>y=%{y:.1f} cm<br>z=%{z:.1f} cm<extra></extra>"
+    ))
+
+    # markers snapped to cloud
+    markers = load_markers_file()
+    if markers:
+        mx, my, mz, mid, mnote = snap_markers_to_cloud(markers, xs, ys, zs)
+
+        fig.add_trace(go.Scatter3d(
+            x=mx, y=my, z=mz,
+            mode='markers+text',
+            name='Markers',
+            text=mid,
+            textposition='top center',
+            customdata=mnote,
+            marker=dict(size=6, color='red'),
+            hovertemplate="<b>%{text}</b><br>%{customdata}<extra></extra>"
+        ))
+
+    fig.update_layout(
+        width=900,
+        height=700,
+        title="3D LiDAR Scan (markers snapped)",
+        margin=dict(l=0, r=0, t=40, b=0),
+        scene=dict(
+            xaxis_title="X (cm)",
+            yaxis_title="Y (cm)",
+            zaxis_title="Z (cm)"
+        )
+    )
+
+    # offline safe
+    last_3d_html = pio.to_html(fig, full_html=False, include_plotlyjs=True)
+
 
 def get_3d_html():
+    # κάθε φορά, ξαναχτίσε 3D ώστε να "τραβάει" τα νεότερα markers.json
+    refresh_3d_from_csv()
     return last_3d_html
 
+
+def refresh_3d_from_csv():
+    if not os.path.exists("scan_points.csv"):
+        return False
+    df = pd.read_csv("scan_points.csv")
+    prepare_3d_plot(df["x"].tolist(), df["y"].tolist(), df["z"].tolist())
+    return True
 
 # ---------------------------------------------------------
 # 2D HEATMAP
@@ -162,13 +262,13 @@ def prepare_2d_map(xs, ys, zs):
     ys_arr = np.array(ys)
     zs_arr = np.array(zs)
 
-    # Remove ground
+    # Remove ground plane (flatten)
     A = np.c_[xs_arr, ys_arr, np.ones_like(xs_arr)]
     coeffs, _, _, _ = np.linalg.lstsq(A, zs_arr, rcond=None)
     plane = A @ coeffs
     zf = zs_arr - plane
 
-    # Grid
+    # Grid bounds
     x_min, x_max = xs_arr.min(), xs_arr.max()
     y_min, y_max = ys_arr.min(), ys_arr.max()
 
@@ -188,13 +288,97 @@ def prepare_2d_map(xs, ys, zs):
         if np.isnan(cur) or val > cur:
             grid[j, i] = val
 
+    # IMPORTANT: give real-world axis coordinates (cm), so click returns cm x/y
+    x_coords = x_min + np.arange(nx) * GRID_SIZE
+    y_coords = y_min + np.arange(ny) * GRID_SIZE
+
     fig = px.imshow(
         grid,
+        x=x_coords,
+        y=y_coords,
         origin="lower",
         color_continuous_scale="Viridis",
-        title="Top-Down Heightmap"
+        title="Top-Down Heightmap (click to add marker)"
     )
-    last_2d_html = fig.to_html(full_html=False)
+
+    fig.update_layout(
+        width=900,
+        height=700,
+        margin=dict(l=30, r=30, t=50, b=30),
+    )
+
+    # Make a stable div id so we can attach JS
+    plot_html = pio.to_html(fig, full_html=False, include_plotlyjs=True)
+
+    # JS: load markers, draw them, click-to-add, click-to-delete
+    js = """
+<script>
+const plotDiv = document.querySelector('.plotly-graph-div');
+
+async function loadMarkers() {
+  const res = await fetch('/get_markers');
+  return await res.json();
+}
+
+function markerTrace(markers) {
+  return {
+    x: markers.map(m => m.x),
+    y: markers.map(m => m.y),
+    mode: 'markers+text',
+    name: 'Markers',
+    text: markers.map(m => m.id),
+    textposition: 'top center',
+    customdata: markers.map(m => m.id),
+    marker: { size: 10, symbol: 'circle' },
+    hovertemplate: '<b>%{text}</b><br>x=%{x:.1f} cm<br>y=%{y:.1f} cm<extra></extra>'
+  };
+}
+
+async function refreshMarkers() {
+  const markers = await loadMarkers();
+  const idx = plotDiv.data.findIndex(tr => tr.name === 'Markers');
+  if (idx !== -1) await Plotly.deleteTraces(plotDiv, idx);
+  if (markers.length > 0) await Plotly.addTraces(plotDiv, markerTrace(markers));
+}
+
+plotDiv.on('plotly_click', async function(evt) {
+  const pt = evt.points[0];
+
+  if (pt.data && pt.data.name === 'Markers') {
+    const id = pt.customdata;
+    if (confirm('Delete marker ' + id + '?')) {
+      await fetch('/delete_marker', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({id: id})
+      });
+      await refreshMarkers();
+    }
+    return;
+  }
+
+  const x = pt.x;
+  const y = pt.y;
+
+  const note = prompt('Σημείωση για νέο εύρημα:', '');
+  if (note === null) return;
+
+  let photo = "";
+  if (confirm("Να συνδεθεί η τελευταία φωτογραφία με αυτό το εύρημα;")) {
+    const r = await fetch("/last_photo");
+    const j = await r.json();
+    if (j.status === "ok") photo = j.file;
+  }
+
+
+  await refreshMarkers();
+});
+
+refreshMarkers();
+</script>
+"""
+
+    last_2d_html = plot_html + js
 
 def get_2d_html():
     return last_2d_html
@@ -271,3 +455,14 @@ def save_stl(xs, ys, zs):
                 tri(v2, v4, v3)
 
         f.write("endsolid scan\n")
+        
+        
+def get_live_chunk(after=0, max_points=1500):
+    # επιστρέφει (scan_id, next_index, points_list)
+    with live_lock:
+        sid = live_scan_id
+        n = len(live_points)
+        if after < 0: after = 0
+        pts = live_points[after: min(n, after + max_points)]
+        return sid, min(n, after + max_points), pts
+
