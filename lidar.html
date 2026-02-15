@@ -234,18 +234,7 @@ function startScan() {
     });
 }
 
-function showFindings() {
-    document.getElementById("viewer").src = "/findings";
-}
 
-function downloadProjectZip() {
-    window.location.href = "/download_project_zip";
-}
-
-function runAI() {
-  document.getElementById("status").innerHTML = "Running AI on last photo...";
-  document.getElementById("viewer").src = "/ai_view_last_photo";
-}
 
 function updateStatus() {
     fetch("/status")
@@ -264,13 +253,7 @@ function updateStatus() {
     });
 }
 
-function downloadFindingsJSON() {
-    window.location.href = "/download_findings_json";
-}
 
-function downloadFindingsCSV() {
-    window.location.href = "/download_findings_csv";
-}
 
 function show3D() {
     document.getElementById("viewer").src = "/view3d";
@@ -350,4 +333,5 @@ function shutdownPi() {
 
 </body>
 </html>
+
 
