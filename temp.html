@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px 12px;
+      background: #101010;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+
+    .traffic-task {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    .traffic-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .traffic-description {
+      font-size: 16px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .traffic-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      border-radius: 9px;
+      margin-bottom: 12px;
+    }
+
+    .traffic-circle {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      border-radius: 50%;
+    }
+
+    .traffic-card h3 {
+      margin: 0 0 5px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .traffic-card p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .green {
+      background: #071b12;
+    }
+
+    .green .traffic-circle {
+      background: #22c55e;
+    }
+
+    .yellow {
+      background: #211808;
+    }
+
+    .yellow .traffic-circle {
+      background: #ffad12;
+    }
+
+    .red {
+      background: #220f0f;
+    }
+
+    .red .traffic-circle {
+      background: #f64c4c;
+    }
+
+    .traffic-footer {
+      margin-top: 20px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="traffic-task">
+
+    <div class="traffic-title">
+      🚦 Προγραμματίστε το φανάρι σας
+    </div>
+
+    <div class="traffic-description">
+      Το φανάρι πρέπει να λειτουργεί με την παρακάτω σειρά:
+    </div>
+
+    <!-- Πράσινο -->
+    <div class="traffic-card green">
+      <div class="traffic-circle"></div>
+
+      <div>
+        <h3>Πράσινο — 5 δευτερόλεπτα</h3>
+        <p>Τα υπόλοιπα LED είναι σβηστά.</p>
+      </div>
+    </div>
+
+    <!-- Κίτρινο -->
+    <div class="traffic-card yellow">
+      <div class="traffic-circle"></div>
+
+      <div>
+        <h3>Κίτρινο — 2 δευτερόλεπτα</h3>
+        <p>Τα υπόλοιπα LED είναι σβηστά.</p>
+      </div>
+    </div>
+
+    <!-- Κόκκινο -->
+    <div class="traffic-card red">
+      <div class="traffic-circle"></div>
+
+      <div>
+        <h3>Κόκκινο — 5 δευτερόλεπτα</h3>
+        <p>Τα υπόλοιπα LED είναι σβηστά.</p>
+      </div>
+    </div>
+
+    <div class="traffic-footer">
+      Η διαδικασία επαναλαμβάνεται συνεχώς.
+    </div>
+
+  </div>
+
+</body>
+</html>
